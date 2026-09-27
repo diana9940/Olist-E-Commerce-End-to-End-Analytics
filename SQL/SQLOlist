@@ -1,0 +1,67 @@
+use Olist
+
+--Total Customer Count by State
+select top 3 
+			count(c.customer_id) as #customer ,
+			 c.customer_state
+from customer c
+group by c.customer_state
+order by #customer desc
+
+--Total Orders by Status
+select count(o.order_id) as  #orders ,o.order_status
+from orderData o
+group by o.order_status
+order by #orders desc
+
+--Payment Methods Distribution
+SELECT 
+    payment_type,
+    COUNT(order_id) AS total_transactions,
+    ROUND(SUM(payment_value), 2) AS total_payment_value
+FROM payments
+GROUP BY payment_type
+ORDER BY total_payment_value DESC;
+
+--Monthly Revenue Trend
+SELECT top 3
+    FORMAT(o.order_purchase_timestamp, 'yyyy-MM') AS order_month,
+    COUNT(DISTINCT o.order_id) AS total_orders,
+    ROUND(SUM(p.payment_value), 2) AS total_revenue
+FROM orderData o
+JOIN payments p ON o.order_id = p.order_id
+WHERE o.order_status = 'delivered'
+GROUP BY FORMAT(o.order_purchase_timestamp, 'yyyy-MM')
+ORDER BY total_revenue desc
+
+--Top 10 Product Categories by Revenue
+select top 10
+    ROUND(SUM(p.payment_value),2) AS total_revenue,
+    pr.product_category_name
+from order_item oi
+inner join payments p on p.order_id=oi.order_id
+inner join products pr on pr.product_id=oi.product_id
+group by pr.product_category_name
+order by total_revenue desc 
+
+--Order Delivery Delay Analysis
+SELECT 
+    COUNT(order_id) AS total_delivered_orders,
+    SUM(CASE WHEN order_delivered_customer_date > order_estimated_delivery_date THEN 1 ELSE 0 END) AS delayed_orders,
+    ROUND(
+        (CAST(SUM(CASE WHEN order_delivered_customer_date > order_estimated_delivery_date THEN 1 ELSE 0 END) AS FLOAT) / COUNT(order_id)) * 100, 
+        2
+    ) AS delay_percentage
+FROM orderData
+WHERE order_status = 'delivered';
+
+--Review Score vs. Delivery Delay Impact
+select 
+        r.review_score,
+        COUNT(o.order_id) AS total_orders,
+        ROUND(AVG(CAST(DATEDIFF(day, o.order_estimated_delivery_date, o.order_delivered_customer_date) AS FLOAT)), 1) AS avg_delay_days
+from orderData o
+JOIN reviews r ON o.order_id = r.order_id
+WHERE o.order_status = 'delivered' AND o.order_delivered_customer_date > o.order_estimated_delivery_date
+GROUP BY r.review_score
+ORDER BY r.review_score DESC;
